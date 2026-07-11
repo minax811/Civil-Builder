@@ -12,6 +12,8 @@ const LV = {
   anchors: [[3.5,6],[8.5,6]],
 };
 
+const BREAK = 0.00045;   // beam snaps past this strain (tuned: plank 0.00071, truss 0.00013)
+
 let joints = LV.anchors.map(a => ({x: a[0], y: a[1], anchor: true}));
 let beams  = [];
 
@@ -69,7 +71,8 @@ function startSim(){
   const pts = joints.map(j => ({x: j.x, y: j.y, ox: j.x, oy: j.y, inv: j.anchor ? 0 : 1, r: 0}));
   const cons = beams.map(b => ({
     a: b.a, b: b.b,
-    rest: dist(joints[b.a].x, joints[b.a].y, joints[b.b].x, joints[b.b].y)
+    rest: dist(joints[b.a].x, joints[b.a].y, joints[b.b].x, joints[b.b].y),
+    acc: 0, strain: 0, broken: false
   }));
 
   const gy = LV.groundY, r = 0.34, cx = 1.1;
@@ -85,7 +88,7 @@ function startSim(){
     {a: base + 1, b: base + 2, rest: Math.hypot(0.75, 0.85)},
   ];
 
-  sim = {pts, cons, carCons, base};
+  sim = {pts, cons, carCons, base, over: false};
   mode = 'sim';
 }
 
@@ -144,6 +147,8 @@ function stepSim(){
   const {pts, cons, carCons, base} = sim;
   const SUB = 4, ITER = 14, dt = 1/60/SUB, g = 9.8, terr = terrainSegs();
 
+  for (const c of cons) c.acc = 0;
+
   for (let s = 0; s < SUB; s++){
     for (const p of pts){
       if (!p.inv) continue;
@@ -155,9 +160,11 @@ function stepSim(){
     }
     for (let it = 0; it < ITER; it++){
       for (const c of cons){
+        if (c.broken) continue;
         const A = pts[c.a], B = pts[c.b];
         const dx = B.x - A.x, dy = B.y - A.y;
         const L = Math.hypot(dx, dy) || 1e-9;
+        c.acc += (L - c.rest) / c.rest;
         const diff = (L - c.rest) / L;
         const wS = A.inv + B.inv || 1e-9;
         A.x += dx * diff * (A.inv / wS); A.y += dy * diff * (A.inv / wS);
@@ -175,25 +182,72 @@ function stepSim(){
         const p = pts[w];
         for (const t of terr) collideWheelSeg(p, t[0], t[1], t[2], t[3]);
         for (const c of cons){
+          if (c.broken) continue;
           const A = pts[c.a], B = pts[c.b];
           collideWheelSeg(p, A.x, A.y, B.x, B.y, A, B);
         }
       }
     }
   }
+
+  for (const c of cons){
+    if (c.broken) continue;
+    c.strain = c.acc / (SUB * ITER);
+    if (Math.abs(c.strain) > BREAK) c.broken = true;
+  }
+
+  const front = pts[base + 1], rear = pts[base], roof = pts[base + 2];
+  if (front.x > LV.flagX){
+    endSim(true);
+  } else if (rear.y > LV.waterY + 0.3 || front.y > LV.waterY + 0.3 || roof.y > LV.waterY + 0.3){
+    endSim(false);
+  }
 }
 
-document.getElementById('testBtn').addEventListener('click', () => {
+function endSim(won){
+  sim.over = true;
+  if (won){
+    showCard('Bridge certified! 🎉', 'The truck made it across. Nicely engineered.',
+      [['Back to build', backToBuild, 'primary']]);
+  } else {
+    showCard('Splash! 💦', 'The truck went for a swim. Watch which beams glow red, then brace them.',
+      [['Back to build', backToBuild, 'primary']]);
+  }
+}
+
+function backToBuild(){
+  hideCard();
+  stopSim();
+  setTestBtn(true);
+}
+
+function setTestBtn(building){
   const tb = document.getElementById('testBtn');
+  tb.textContent = building ? '▶ Test drive' : '■ Back to build';
+  tb.className = building ? 'primary' : 'stop';
+}
+
+function showCard(title, text, btns){
+  document.getElementById('cardTitle').innerHTML = title;
+  document.getElementById('cardText').innerHTML = text;
+  const row = document.getElementById('cardBtns'); row.innerHTML = '';
+  for (const [label, fn, cls] of btns){
+    const b = document.createElement('button');
+    b.textContent = label; if (cls) b.className = cls;
+    b.onclick = fn; row.appendChild(b);
+  }
+  document.getElementById('overlay').classList.add('show');
+}
+function hideCard(){ document.getElementById('overlay').classList.remove('show'); }
+
+document.getElementById('testBtn').addEventListener('click', () => {
   if (mode === 'build'){
     if (beams.length === 0) return;
     startSim();
-    tb.textContent = '■ Back to build';
-    tb.className = 'stop';
+    setTestBtn(false);
   } else {
     stopSim();
-    tb.textContent = '▶ Test drive';
-    tb.className = 'primary';
+    setTestBtn(true);
   }
 });
 
@@ -265,6 +319,13 @@ function drawGrid(){
     }
 }
 
+function strainCol(strain){
+  const t = Math.min(1, Math.abs(strain) / BREAK);
+  const lerp = (a, b, k) => Math.round(a + (b - a) * k);
+  if (t < 0.5){ const k = t * 2;       return `rgb(${lerp(55,245,k)},${lerp(185,184,k)},${lerp(110,64,k)})`; }
+  else        { const k = (t - .5) * 2; return `rgb(${lerp(245,230,k)},${lerp(184,69,k)},${lerp(64,69,k)})`; }
+}
+
 function drawBeam(x1, y1, x2, y2, color){
   ctx.strokeStyle = color || '#3d4450';
   ctx.lineWidth = 0.16 * S;
@@ -325,10 +386,11 @@ function frame(){
       ctx.globalAlpha = 1;
     }
   } else {
-    stepSim();
+    if (!sim.over) stepSim();
     for (const c of sim.cons){
+      if (c.broken) continue;
       const A = sim.pts[c.a], B = sim.pts[c.b];
-      drawBeam(A.x, A.y, B.x, B.y);
+      drawBeam(A.x, A.y, B.x, B.y, strainCol(c.strain));
     }
     for (let i = 0; i < joints.length; i++)
       drawJoint(sim.pts[i].x, sim.pts[i].y, joints[i].anchor);
