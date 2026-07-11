@@ -89,6 +89,52 @@ function startSim(){
   mode = 'sim';
 }
 
+function terrainSegs(){
+  const g = LV.groundY;
+  return [
+    [-1, g, LV.gapL, g],
+    [LV.gapR, g, LV.worldW + 1, g],
+    [LV.gapL, g, LV.gapL, g + 5],
+    [LV.gapR, g, LV.gapR, g + 5],
+  ];
+}
+
+function collideWheelSeg(p, x1, y1, x2, y2, pA = null, pB = null){
+  const dx = x2 - x1, dy = y2 - y1, L2 = dx*dx + dy*dy || 1e-9;
+  let t = ((p.x - x1)*dx + (p.y - y1)*dy) / L2;
+  t = Math.max(0, Math.min(1, t));
+  const cxp = x1 + dx*t, cyp = y1 + dy*t;
+  let nx = p.x - cxp, ny = p.y - cyp;
+  const d = Math.hypot(nx, ny);
+  if (d >= p.r || d < 1e-9) return false;
+  nx /= d; ny /= d;
+  const pen = p.r - d;
+
+  if (pA && pB){
+    const invBeam = (1-t)*(1-t)*pA.inv + t*t*pB.inv;
+    const wSum = p.inv + invBeam || 1e-9;
+    const wp = p.inv / wSum, wb = 1 - wp;
+    p.x += nx*pen*wp; p.y += ny*pen*wp;
+    const push = pen*wb;
+    if (pA.inv){ pA.x -= nx*push*(1-t); pA.y -= ny*push*(1-t); }
+    if (pB.inv){ pB.x -= nx*push*t;     pB.y -= ny*push*t;     }
+  } else {
+    p.x += nx*pen; p.y += ny*pen;
+  }
+
+  let tx = -ny, ty = nx;
+  if (tx < 0){ tx = -tx; ty = -ty; }
+  const vx = p.x - p.ox, vy = p.y - p.oy;
+  const vt = vx*tx + vy*ty;
+  const target = 0.013;
+  const add = Math.max(-0.0018, Math.min(0.0018, target - vt));
+  p.ox -= tx*add; p.oy -= ty*add;
+
+  const vn = vx*nx + vy*ny;
+  if (vn < 0){ p.ox += nx*vn*0.6; p.oy += ny*vn*0.6; }
+  return true;
+}
+
 function stopSim(){
   sim = null;
   mode = 'build';
