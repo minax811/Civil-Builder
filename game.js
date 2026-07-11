@@ -66,12 +66,26 @@ cv.addEventListener('pointerup', e => {
 });
 
 function startSim(){
-  const pts = joints.map(j => ({x: j.x, y: j.y, ox: j.x, oy: j.y, inv: j.anchor ? 0 : 1}));
+  const pts = joints.map(j => ({x: j.x, y: j.y, ox: j.x, oy: j.y, inv: j.anchor ? 0 : 1, r: 0}));
   const cons = beams.map(b => ({
     a: b.a, b: b.b,
     rest: dist(joints[b.a].x, joints[b.a].y, joints[b.b].x, joints[b.b].y)
   }));
-  sim = {pts, cons};
+
+  const gy = LV.groundY, r = 0.34, cx = 1.1;
+  const base = pts.length;
+  const W = (x, y, rad, inv) => pts.push({x, y, ox: x, oy: y, inv, r: rad});
+  W(cx,        gy - r,        r, 0.12);
+  W(cx + 1.5,  gy - r,        r, 0.12);
+  W(cx + 0.75, gy - r - 0.85, 0, 0.25);
+
+  const carCons = [
+    {a: base,     b: base + 1, rest: 1.5},
+    {a: base,     b: base + 2, rest: Math.hypot(0.75, 0.85)},
+    {a: base + 1, b: base + 2, rest: Math.hypot(0.75, 0.85)},
+  ];
+
+  sim = {pts, cons, carCons, base};
   mode = 'sim';
 }
 
