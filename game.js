@@ -108,6 +108,15 @@ function stepSim(){
       p.y += vy + g * dt * dt;
     }
     for (let it = 0; it < ITER; it++){
+      for (const c of cons){
+        const A = pts[c.a], B = pts[c.b];
+        const dx = B.x - A.x, dy = B.y - A.y;
+        const L = Math.hypot(dx, dy) || 1e-9;
+        const diff = (L - c.rest) / L;
+        const wS = A.inv + B.inv || 1e-9;
+        A.x += dx * diff * (A.inv / wS); A.y += dy * diff * (A.inv / wS);
+        B.x -= dx * diff * (B.inv / wS); B.y -= dy * diff * (B.inv / wS);
+      }
       for (const c of carCons){
         const A = pts[c.a], B = pts[c.b];
         const dx = B.x - A.x, dy = B.y - A.y;
@@ -217,6 +226,32 @@ function drawJoint(x, y, anchor){
   ctx.lineWidth = 2.5; ctx.strokeStyle = '#2b3a4a'; ctx.stroke();
 }
 
+function drawCar(){
+  const {pts, base} = sim;
+  const A = pts[base], B = pts[base + 1];
+  const ang = Math.atan2(B.y - A.y, B.x - A.x);
+  const cx = (A.x + B.x) / 2, cy = (A.y + B.y) / 2;
+
+  ctx.save();
+  ctx.translate(px(cx), py(cy));
+  ctx.rotate(ang);
+  const u = S;
+  ctx.fillStyle = '#e64545';
+  ctx.beginPath(); ctx.roundRect(-0.95*u, -0.62*u, 1.9*u, 0.42*u, 6); ctx.fill();
+  ctx.fillStyle = '#c93b3b';
+  ctx.beginPath(); ctx.roundRect(-0.35*u, -1.0*u, 0.75*u, 0.45*u, 6); ctx.fill();
+  ctx.fillStyle = '#bfe6f5';
+  ctx.beginPath(); ctx.roundRect(-0.25*u, -0.94*u, 0.55*u, 0.3*u, 4); ctx.fill();
+  ctx.restore();
+
+  for (const p of [A, B]){
+    ctx.beginPath(); ctx.arc(px(p.x), py(p.y), p.r * S, 0, Math.PI*2);
+    ctx.fillStyle = '#2b3a4a'; ctx.fill();
+    ctx.beginPath(); ctx.arc(px(p.x), py(p.y), p.r * S * 0.45, 0, Math.PI*2);
+    ctx.fillStyle = '#d8dee6'; ctx.fill();
+  }
+}
+
 function frame(){
   ctx.clearRect(0, 0, cv.clientWidth, cv.clientHeight);
   drawBackdrop(cv.clientWidth, cv.clientHeight);
@@ -243,6 +278,7 @@ function frame(){
     }
     for (let i = 0; i < joints.length; i++)
       drawJoint(sim.pts[i].x, sim.pts[i].y, joints[i].anchor);
+    drawCar();
   }
 
   requestAnimationFrame(frame);
