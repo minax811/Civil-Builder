@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#1d2733;}
+  canvas{display:block;width:100%;height:100%;}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<script>
+"use strict";
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+function resize(){
+  cv.width  = cv.clientWidth;
+  cv.height = cv.clientHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+let t = 0;
+
+function frame(){
+  ctx.clearRect(0, 0, cv.width, cv.height);
+
+  ctx.fillStyle = '#ff6b4a';
+  const x = (t * 2) % (cv.width + 120) - 120;
+  ctx.fillRect(x, cv.height/2 - 30, 120, 60);
+
+  t++;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
