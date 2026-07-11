@@ -141,8 +141,8 @@ function stopSim(){
 }
 
 function stepSim(){
-  const {pts, cons, carCons} = sim;
-  const SUB = 4, ITER = 14, dt = 1/60/SUB, g = 9.8;
+  const {pts, cons, carCons, base} = sim;
+  const SUB = 4, ITER = 14, dt = 1/60/SUB, g = 9.8, terr = terrainSegs();
 
   for (let s = 0; s < SUB; s++){
     for (const p of pts){
@@ -170,6 +170,14 @@ function stepSim(){
         const diff = (L - c.rest) / L * 0.5;
         A.x += dx * diff; A.y += dy * diff;
         B.x -= dx * diff; B.y -= dy * diff;
+      }
+      for (let w = base; w < base + 2; w++){
+        const p = pts[w];
+        for (const t of terr) collideWheelSeg(p, t[0], t[1], t[2], t[3]);
+        for (const c of cons){
+          const A = pts[c.a], B = pts[c.b];
+          collideWheelSeg(p, A.x, A.y, B.x, B.y, A, B);
+        }
       }
     }
   }
