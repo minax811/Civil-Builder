@@ -95,7 +95,7 @@ function stopSim(){
 }
 
 function stepSim(){
-  const {pts, cons} = sim;
+  const {pts, cons, carCons} = sim;
   const SUB = 4, ITER = 14, dt = 1/60/SUB, g = 9.8;
 
   for (let s = 0; s < SUB; s++){
@@ -108,14 +108,13 @@ function stepSim(){
       p.y += vy + g * dt * dt;
     }
     for (let it = 0; it < ITER; it++){
-      for (const c of cons){
+      for (const c of carCons){
         const A = pts[c.a], B = pts[c.b];
         const dx = B.x - A.x, dy = B.y - A.y;
         const L = Math.hypot(dx, dy) || 1e-9;
-        const diff = (L - c.rest) / L;
-        const wS = A.inv + B.inv || 1e-9;
-        A.x += dx * diff * (A.inv / wS); A.y += dy * diff * (A.inv / wS);
-        B.x -= dx * diff * (B.inv / wS); B.y -= dy * diff * (B.inv / wS);
+        const diff = (L - c.rest) / L * 0.5;
+        A.x += dx * diff; A.y += dy * diff;
+        B.x -= dx * diff; B.y -= dy * diff;
       }
     }
   }
