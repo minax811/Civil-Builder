@@ -10,14 +10,22 @@ const LV = {
   waterY: 8.1,
   flagX: 10.9,
   anchors: [[3.5,6],[8.5,6]],
+  budget: 5200,
 };
 
-const BREAK = 0.00045;   // beam snaps past this strain (tuned: plank 0.00071, truss 0.00013)
+const MAT = {
+  road:  {rate: 340, breakStrain: 0.00045, drivable: true },
+  steel: {rate: 180, breakStrain: 0.00090, drivable: false},
+};
+document.getElementById('roadCost').textContent  = '$' + MAT.road.rate + '/m';
+document.getElementById('steelCost').textContent = '$' + MAT.steel.rate + '/m';
 
 let joints = LV.anchors.map(a => ({x: a[0], y: a[1], anchor: true}));
 let beams  = [];
+let undoStack = [];
 
 let mode = 'build';
+let tool = 'road';
 let sim = null;
 
 const dist = (ax, ay, bx, by) => Math.hypot(bx - ax, by - ay);
@@ -29,12 +37,43 @@ function jointAt(x, y){
   return -1;
 }
 
+function beamCost(bm){
+  const A = joints[bm.a], B = joints[bm.b];
+  return Math.round(dist(A.x, A.y, B.x, B.y) * MAT[bm.mat].rate);
+}
+function totalCost(){
+  let c = 0;
+  for (const bm of beams) c += beamCost(bm);
+  return c;
+}
+function updateBudget(){
+  const c = totalCost(), el = document.getElementById('budgetPill');
+  el.innerHTML = `<b>$${c.toLocaleString()}</b> / $${LV.budget.toLocaleString()}`;
+  el.classList.toggle('over', c > LV.budget);
+}
+
+function pushUndo(){
+  undoStack.push(JSON.stringify({joints, beams}));
+  if (undoStack.length > 60) undoStack.shift();
+}
+function cleanOrphans(){
+  const used = new Set();
+  beams.forEach(b => { used.add(b.a); used.add(b.b); });
+  for (let i = joints.length - 1; i >= 0; i--){
+    if (!joints[i].anchor && !used.has(i)){
+      joints.splice(i, 1);
+      beams.forEach(b => { if (b.a > i) b.a--; if (b.b > i) b.b--; });
+    }
+  }
+}
+
 let dragFrom = null;
 let hover = {x: 0, y: 0};
 
 cv.addEventListener('pointerdown', e => {
   if (mode !== 'build') return;
   const x = wx(e.offsetX), y = wy(e.offsetY);
+  if (tool === 'erase'){ eraseAt(x, y); return; }
   const j = jointAt(x, y);
   dragFrom = j >= 0
     ? {x: joints[j].x, y: joints[j].y, j}
@@ -57,20 +96,88 @@ cv.addEventListener('pointerup', e => {
 
   const len = dist(dragFrom.x, dragFrom.y, ex, ey);
   if (len >= 0.4 && len <= 2.5){
+    const cost = Math.round(len * MAT[tool].rate);
+    if (totalCost() + cost > LV.budget){
+      flashBudget();
+      dragFrom = null;
+      return;
+    }
+    pushUndo();
     let jA = dragFrom.j;
     if (jA < 0){ joints.push({x: dragFrom.x, y: dragFrom.y, anchor: false}); jA = joints.length - 1; }
     let jB = jEnd;
     if (jB < 0){ joints.push({x: ex, y: ey, anchor: false}); jB = joints.length - 1; }
-    if (jA !== jB && !beams.some(b => (b.a===jA && b.b===jB) || (b.a===jB && b.b===jA)))
-      beams.push({a: jA, b: jB});
+    if (jA !== jB && !beams.some(b => (b.a===jA && b.b===jB) || (b.a===jB && b.b===jA))){
+      beams.push({a: jA, b: jB, mat: tool});
+      updateBudget();
+    } else {
+      undoStack.pop();
+      cleanOrphans();
+    }
   }
   dragFrom = null;
 });
 
+function eraseAt(x, y){
+  let best = -1, bd = 0.22;
+  for (let i = 0; i < beams.length; i++){
+    const A = joints[beams[i].a], B = joints[beams[i].b];
+    const dx = B.x - A.x, dy = B.y - A.y, L2 = dx*dx + dy*dy || 1e-9;
+    let t = ((x - A.x)*dx + (y - A.y)*dy) / L2;
+    t = Math.max(0, Math.min(1, t));
+    const d = dist(x, y, A.x + dx*t, A.y + dy*t);
+    if (d < bd){ bd = d; best = i; }
+  }
+  if (best >= 0){
+    pushUndo();
+    beams.splice(best, 1);
+    cleanOrphans();
+    updateBudget();
+  }
+}
+
+document.querySelectorAll('.tool').forEach(el => {
+  el.addEventListener('click', () => {
+    if (mode !== 'build') return;
+    tool = el.dataset.tool;
+    document.querySelectorAll('.tool').forEach(t => t.classList.toggle('active', t === el));
+  });
+});
+
+document.getElementById('undoBtn').addEventListener('click', () => {
+  if (mode !== 'build' || !undoStack.length) return;
+  const s = JSON.parse(undoStack.pop());
+  joints = s.joints; beams = s.beams;
+  updateBudget();
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  if (mode !== 'build' || !beams.length) return;
+  pushUndo();
+  beams = [];
+  cleanOrphans();
+  updateBudget();
+});
+
+let hintT = null;
+function flashHint(msg){
+  const h = document.getElementById('hint');
+  h.innerHTML = msg;
+  h.style.opacity = 1;
+  clearTimeout(hintT);
+  hintT = setTimeout(() => h.style.opacity = 0.85, 2500);
+}
+function flashBudget(){
+  const el = document.getElementById('budgetPill');
+  el.classList.add('over');
+  setTimeout(() => updateBudget(), 600);
+  flashHint('Too expensive — not enough budget for that beam!');
+}
+
 function startSim(){
   const pts = joints.map(j => ({x: j.x, y: j.y, ox: j.x, oy: j.y, inv: j.anchor ? 0 : 1, r: 0}));
   const cons = beams.map(b => ({
-    a: b.a, b: b.b,
+    a: b.a, b: b.b, mat: b.mat,
     rest: dist(joints[b.a].x, joints[b.a].y, joints[b.b].x, joints[b.b].y),
     acc: 0, strain: 0, broken: false
   }));
@@ -182,7 +289,7 @@ function stepSim(){
         const p = pts[w];
         for (const t of terr) collideWheelSeg(p, t[0], t[1], t[2], t[3]);
         for (const c of cons){
-          if (c.broken) continue;
+          if (c.broken || !MAT[c.mat].drivable) continue;
           const A = pts[c.a], B = pts[c.b];
           collideWheelSeg(p, A.x, A.y, B.x, B.y, A, B);
         }
@@ -193,7 +300,7 @@ function stepSim(){
   for (const c of cons){
     if (c.broken) continue;
     c.strain = c.acc / (SUB * ITER);
-    if (Math.abs(c.strain) > BREAK) c.broken = true;
+    if (Math.abs(c.strain) > MAT[c.mat].breakStrain) c.broken = true;
   }
 
   const front = pts[base + 1], rear = pts[base], roof = pts[base + 2];
@@ -207,7 +314,8 @@ function stepSim(){
 function endSim(won){
   sim.over = true;
   if (won){
-    showCard('Bridge certified! 🎉', 'The truck made it across. Nicely engineered.',
+    showCard('Bridge certified! 🎉',
+      `The truck made it across.<br>Build cost: <b>$${totalCost().toLocaleString()}</b> of $${LV.budget.toLocaleString()}.`,
       [['Back to build', backToBuild, 'primary']]);
   } else {
     showCard('Splash! 💦', 'The truck went for a swim. Watch which beams glow red, then brace them.',
@@ -242,7 +350,7 @@ function hideCard(){ document.getElementById('overlay').classList.remove('show')
 
 document.getElementById('testBtn').addEventListener('click', () => {
   if (mode === 'build'){
-    if (beams.length === 0) return;
+    if (beams.length === 0){ flashHint('Build something first!'); return; }
     startSim();
     setTestBtn(false);
   } else {
@@ -319,20 +427,29 @@ function drawGrid(){
     }
 }
 
-function strainCol(strain){
-  const t = Math.min(1, Math.abs(strain) / BREAK);
+function strainCol(c){
+  const t = Math.min(1, Math.abs(c.strain) / MAT[c.mat].breakStrain);
   const lerp = (a, b, k) => Math.round(a + (b - a) * k);
   if (t < 0.5){ const k = t * 2;       return `rgb(${lerp(55,245,k)},${lerp(185,184,k)},${lerp(110,64,k)})`; }
-  else        { const k = (t - .5) * 2; return `rgb(${lerp(245,230,k)},${lerp(184,69,k)},${lerp(64,69,k)})`; }
+  else        { const k = (t - .5) * 2; return `rgb(${lerp(245,184,k)},${lerp(184,69,k)},${lerp(64,69,k)})`; }
 }
 
-function drawBeam(x1, y1, x2, y2, color){
-  ctx.strokeStyle = color || '#3d4450';
-  ctx.lineWidth = 0.16 * S;
+function drawBeam(x1, y1, x2, y2, mat, color){
   ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(px(x1), py(y1)); ctx.lineTo(px(x2), py(y2));
-  ctx.stroke();
+  if (mat === 'road'){
+    ctx.strokeStyle = color || '#3d4450';
+    ctx.lineWidth = 0.16 * S;
+    ctx.beginPath(); ctx.moveTo(px(x1), py(y1)); ctx.lineTo(px(x2), py(y2)); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,214,90,.9)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([S*0.18, S*0.14]);
+    ctx.beginPath(); ctx.moveTo(px(x1), py(y1)); ctx.lineTo(px(x2), py(y2)); ctx.stroke();
+    ctx.setLineDash([]);
+  } else {
+    ctx.strokeStyle = color || '#8fa3b8';
+    ctx.lineWidth = 0.08 * S;
+    ctx.beginPath(); ctx.moveTo(px(x1), py(y1)); ctx.lineTo(px(x2), py(y2)); ctx.stroke();
+  }
 }
 
 function drawJoint(x, y, anchor){
@@ -376,21 +493,28 @@ function frame(){
     drawGrid();
     for (const bm of beams){
       const A = joints[bm.a], B = joints[bm.b];
-      drawBeam(A.x, A.y, B.x, B.y);
+      drawBeam(A.x, A.y, B.x, B.y, bm.mat);
     }
     for (const j of joints) drawJoint(j.x, j.y, j.anchor);
     if (dragFrom){
       const ok = dist(dragFrom.x, dragFrom.y, hover.x, hover.y) <= 2.5;
       ctx.globalAlpha = 0.6;
-      drawBeam(dragFrom.x, dragFrom.y, hover.x, hover.y, ok ? null : '#e64545');
+      drawBeam(dragFrom.x, dragFrom.y, hover.x, hover.y, tool, ok ? null : '#e64545');
       ctx.globalAlpha = 1;
+      const midx = px((dragFrom.x + hover.x) / 2);
+      const midy = py((dragFrom.y + hover.y) / 2) - 14;
+      const L = dist(dragFrom.x, dragFrom.y, hover.x, hover.y);
+      ctx.font = '700 12px Trebuchet MS';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = ok ? '#2b3a4a' : '#e64545';
+      ctx.fillText(L.toFixed(1) + ' m · $' + Math.round(L * MAT[tool].rate), midx, midy);
     }
   } else {
     if (!sim.over) stepSim();
     for (const c of sim.cons){
       if (c.broken) continue;
       const A = sim.pts[c.a], B = sim.pts[c.b];
-      drawBeam(A.x, A.y, B.x, B.y, strainCol(c.strain));
+      drawBeam(A.x, A.y, B.x, B.y, c.mat, strainCol(c));
     }
     for (let i = 0; i < joints.length; i++)
       drawJoint(sim.pts[i].x, sim.pts[i].y, joints[i].anchor);
@@ -399,4 +523,6 @@ function frame(){
 
   requestAnimationFrame(frame);
 }
+
+updateBudget();
 requestAnimationFrame(frame);
