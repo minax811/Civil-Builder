@@ -424,15 +424,24 @@ window.addEventListener('resize', resize);
 resize();
 
 function drawBackdrop(w, h){
-  const sky = ctx.createLinearGradient(0, 0, 0, h);
-  sky.addColorStop(0,  '#8fd3f4');
-  sky.addColorStop(.55,'#ffd9a0');
-  sky.addColorStop(1,  '#ff9e7a');
-  ctx.fillStyle = sky;
+  ctx.fillStyle = '#8fd3f4';
   ctx.fillRect(0, 0, w, h);
 
-  ctx.fillStyle = 'rgba(255,236,170,.95)';
-  ctx.beginPath(); ctx.arc(w*0.78, py(1.6), S*0.75, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = 'rgba(110,144,169,.55)';
+  ctx.beginPath();
+  ctx.moveTo(0, py(4.6));
+  ctx.lineTo(w*.18, py(3.4)); ctx.lineTo(w*.34, py(4.4));
+  ctx.lineTo(w*.52, py(3.1)); ctx.lineTo(w*.7,  py(4.5));
+  ctx.lineTo(w*.88, py(3.6)); ctx.lineTo(w,     py(4.4));
+  ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = 'rgba(110,144,169,.55)';
+  ctx.beginPath();
+  ctx.moveTo(0, py(5.2));
+  ctx.lineTo(w*.25, py(4.2)); ctx.lineTo(w*.45, py(5.1));
+  ctx.lineTo(w*.66, py(4.0)); ctx.lineTo(w*.85, py(5.0));
+  ctx.lineTo(w, py(4.5));
+  ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath(); ctx.fill();
 
   ctx.fillStyle = '#3f7fae';
   ctx.fillRect(0, py(LV.waterY), w, h - py(LV.waterY));
@@ -450,7 +459,7 @@ function drawTerrain(){
   ctx.fillRect(px(LV.gapR),py(g)-6, px(LV.worldW+1)-px(LV.gapR), 10);
 
   for (const r of LV.midRocks){
-    ctx.fillStyle = '#7d7368';
+    ctx.fillStyle = '#8a6248';
     ctx.beginPath();
     ctx.moveTo(px(r.x - r.w/2), py(r.top));
     ctx.lineTo(px(r.x + r.w/2), py(r.top));
@@ -584,8 +593,3 @@ function frame(){
 
 loadLevel(0);
 requestAnimationFrame(frame);
-
-
-
-
-

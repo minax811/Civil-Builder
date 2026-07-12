@@ -3,13 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Pocket Bridge — a tiny bridge-building physics game</title>
+<title>— a tiny bridge-building physics game</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div id="topbar">
-  <div class="title">POCKET<span>BRIDGE</span></div>
   <div class="pill" id="levelPill">Level 1</div>
   <div class="pill" id="budgetPill">$0 / $0</div>
   <div class="spacer"></div>
@@ -20,8 +19,8 @@
 
 <div id="stage">
   <div id="toolbar">
-    <div class="tool active" data-tool="road"><div class="swatch"></div>ROAD<small id="roadCost"></small></div>
-    <div class="tool" data-tool="steel"><div class="swatch"></div>STRUT<small id="steelCost"></small></div>
+    <div class="tool active" data-tool="road"><img class="icon" src="road.png" alt="">ROAD<small id="roadCost"></small></div>
+    <div class="tool" data-tool="steel"><img class="icon" src="strut.png" alt="">STRUT<small id="steelCost"></small></div>
     <div class="tool" data-tool="erase"><div class="swatch"></div>ERASE<small>click a beam</small></div>
   </div>
   <canvas id="cv"></canvas>
