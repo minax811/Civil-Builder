@@ -8,6 +8,7 @@ const LEVELS = [
     worldW: 12.5, worldH: 9.4,
     groundY: 6, gapL: 3.5, gapR: 8.5, waterY: 8.1,
     flagX: 10.9, anchors: [[3.5,6],[8.5,6]],
+    midRocks: [],
     budget: 5200,
     intro: 'A lake lies between the road, cross it'
   },
@@ -15,9 +16,10 @@ const LEVELS = [
     name: '2 · hills',
     worldW: 17, worldH: 10.6,
     groundY: 6, gapL: 3.5, gapR: 13.5, waterY: 9.2,
-    flagX: 15.4, anchors: [[3.5,6],[13.5,6]],
+    flagX: 15.4, anchors: [[3.5,6],[13.5,6],[8.5,7.6]],
     budget: 11800,
-    intro: 'This is a 10 metre wide lake cross(twice as before).'
+    midRocks: [{x: 8.5, top: 7.6, w: 1.5}],
+    intro: 'This is a 10 metre wide lake cross(twice as before). Use the rock in the middle — two short bridges beat one long one.'
   },
 ];
 let levelIdx = 0;
@@ -230,12 +232,15 @@ function startSim(){
 
 function terrainSegs(){
   const g = LV.groundY;
-  return [
+  const segs = [
     [-1, g, LV.gapL, g],
     [LV.gapR, g, LV.worldW + 1, g],
     [LV.gapL, g, LV.gapL, g + 5],
     [LV.gapR, g, LV.gapR, g + 5],
   ];
+  for (const r of LV.midRocks)
+    segs.push([r.x - r.w/2, r.top, r.x + r.w/2, r.top]);
+  return segs;
 }
 
 function collideWheelSeg(p, x1, y1, x2, y2, pA = null, pB = null){
@@ -444,6 +449,18 @@ function drawTerrain(){
   ctx.fillRect(px(-1),     py(g)-6, px(LV.gapL) - px(-1),        10);
   ctx.fillRect(px(LV.gapR),py(g)-6, px(LV.worldW+1)-px(LV.gapR), 10);
 
+  for (const r of LV.midRocks){
+    ctx.fillStyle = '#7d7368';
+    ctx.beginPath();
+    ctx.moveTo(px(r.x - r.w/2), py(r.top));
+    ctx.lineTo(px(r.x + r.w/2), py(r.top));
+    ctx.lineTo(px(r.x + r.w/2 + 0.25), py(LV.worldH + 1));
+    ctx.lineTo(px(r.x - r.w/2 - 0.25), py(LV.worldH + 1));
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#5fae57';
+    ctx.fillRect(px(r.x - r.w/2), py(r.top) - 5, px(r.x + r.w/2) - px(r.x - r.w/2), 8);
+  }
+
   const fx = px(LV.flagX), fy = py(g);
   ctx.strokeStyle = '#2b3a4a'; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx, fy - S*1.1); ctx.stroke();
@@ -460,6 +477,10 @@ function drawGrid(){
   for (let x = 0; x <= LV.worldW; x += 0.5)
     for (let y = 1; y <= LV.groundY + 2.5; y += 0.5){
       if (y > LV.groundY && (x < LV.gapL || x > LV.gapR)) continue;
+      let onRock = false;
+      for (const r of LV.midRocks)
+        if (y > r.top && Math.abs(x - r.x) < r.w/2 + 0.3) onRock = true;
+      if (onRock) continue;
       ctx.beginPath(); ctx.arc(px(x), py(y), 2, 0, Math.PI*2); ctx.fill();
     }
 }
@@ -563,3 +584,8 @@ function frame(){
 
 loadLevel(0);
 requestAnimationFrame(frame);
+
+
+
+
+
