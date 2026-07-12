@@ -2,21 +2,47 @@
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 
-const LV = {
-  worldW: 12.5, worldH: 9.4,
-  groundY: 6,
-  gapL: 3.5,
-  gapR: 8.5,
-  waterY: 8.1,
-  flagX: 10.9,
-  anchors: [[3.5,6],[8.5,6]],
-  budget: 5200,
-};
+const LEVELS = [
+  {
+    name: '1 · Starter',
+    worldW: 12.5, worldH: 9.4,
+    groundY: 6, gapL: 3.5, gapR: 8.5, waterY: 8.1,
+    flagX: 10.9, anchors: [[3.5,6],[8.5,6]],
+    budget: 5200,
+    intro: 'A lake lies between the road, cross it'
+  },
+  {
+    name: '2 · hills',
+    worldW: 17, worldH: 10.6,
+    groundY: 6, gapL: 3.5, gapR: 13.5, waterY: 9.2,
+    flagX: 15.4, anchors: [[3.5,6],[13.5,6]],
+    budget: 11800,
+    intro: 'This is a 10 metre wide lake cross(twice as before).'
+  },
+];
+let levelIdx = 0;
+let LV = LEVELS[0];
+
+function loadLevel(i){
+  levelIdx = i;
+  LV = LEVELS[i];
+  joints = LV.anchors.map(a => ({x: a[0], y: a[1], anchor: true}));
+  beams = [];
+  undoStack = [];
+  sim = null;
+  mode = 'build';
+  document.getElementById('levelPill').textContent = 'Level ' + LV.name;
+  setTestBtn(true);
+  resize();
+  updateBudget();
+  showCard(LV.name, LV.intro, [['Let\'s build!', hideCard, 'primary']]);
+}
 
 const MAT = {
   road:  {rate: 340, breakStrain: 0.00045, drivable: true },
-  steel: {rate: 180, breakStrain: 0.00090, drivable: false},
+  steel: {rate: 180, breakStrain: 0.00090, drivable: false},// dont change, PLS
 };
+
 document.getElementById('roadCost').textContent  = '$' + MAT.road.rate + '/m';
 document.getElementById('steelCost').textContent = '$' + MAT.steel.rate + '/m';
 
@@ -28,14 +54,17 @@ let mode = 'build';
 let tool = 'road';
 let sim = null;
 
+
 const dist = (ax, ay, bx, by) => Math.hypot(bx - ax, by - ay);
 const snap = v => Math.round(v * 2) / 2;
+
 
 function jointAt(x, y){
   for (let i = 0; i < joints.length; i++)
     if (dist(joints[i].x, joints[i].y, x, y) < 0.28) return i;
   return -1;
 }
+
 
 function beamCost(bm){
   const A = joints[bm.a], B = joints[bm.b];
@@ -171,7 +200,7 @@ function flashBudget(){
   const el = document.getElementById('budgetPill');
   el.classList.add('over');
   setTimeout(() => updateBudget(), 600);
-  flashHint('Too expensive — not enough budget for that beam!');
+  flashHint('Too expensive, not enough money for that beam');
 }
 
 function startSim(){
@@ -314,12 +343,19 @@ function stepSim(){
 function endSim(won){
   sim.over = true;
   if (won){
+    const btns = [['Rebuild', backToBuild, 'ghost']];
+    if (levelIdx < LEVELS.length - 1)
+      btns.push(['Next level ▶', () => { hideCard(); loadLevel(levelIdx + 1); }, 'primary']);
+    else
+      btns.push(['Play again', () => { hideCard(); loadLevel(0); }, 'primary']);
     showCard('Bridge certified! 🎉',
-      `The truck made it across.<br>Build cost: <b>$${totalCost().toLocaleString()}</b> of $${LV.budget.toLocaleString()}.`,
-      [['Back to build', backToBuild, 'primary']]);
+      `The truck made it across.<br>Build cost: <b>$${totalCost().toLocaleString()}</b> of $${LV.budget.toLocaleString()}.` +
+      (levelIdx === LEVELS.length - 1 ? '<br><br><b>You beat every level!</b>' : ''),
+      btns);
   } else {
-    showCard('Splash! 💦', 'The truck went for a swim. Watch which beams glow red, then brace them.',
-      [['Back to build', backToBuild, 'primary']]);
+    showCard('The trucks down',
+  'The truck fell in the water. Watch which beams become red, thats the one to reinforce.',
+  [['Back to build', backToBuild, 'primary']]);
   }
 }
 
@@ -346,6 +382,7 @@ function showCard(title, text, btns){
   }
   document.getElementById('overlay').classList.add('show');
 }
+
 function hideCard(){ document.getElementById('overlay').classList.remove('show'); }
 
 document.getElementById('testBtn').addEventListener('click', () => {
@@ -524,5 +561,5 @@ function frame(){
   requestAnimationFrame(frame);
 }
 
-updateBudget();
+loadLevel(0);
 requestAnimationFrame(frame);
