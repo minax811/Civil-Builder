@@ -2,6 +2,9 @@
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 
+const bgImg = new Image();
+bgImg.src = 'background.jpeg';
+
 const LEVELS = [
   {
     name: '1 · Starter',
@@ -42,7 +45,7 @@ function loadLevel(i){
 
 const MAT = {
   road:  {rate: 340, breakStrain: 0.00045, drivable: true },
-  steel: {rate: 180, breakStrain: 0.00090, drivable: false},// dont change, PLS
+  steel: {rate: 180, breakStrain: 0.00090, drivable: false},
 };
 
 document.getElementById('roadCost').textContent  = '$' + MAT.road.rate + '/m';
@@ -66,7 +69,6 @@ function jointAt(x, y){
     if (dist(joints[i].x, joints[i].y, x, y) < 0.28) return i;
   return -1;
 }
-
 
 function beamCost(bm){
   const A = joints[bm.a], B = joints[bm.b];
@@ -353,7 +355,7 @@ function endSim(won){
       btns.push(['Next level ▶', () => { hideCard(); loadLevel(levelIdx + 1); }, 'primary']);
     else
       btns.push(['Play again', () => { hideCard(); loadLevel(0); }, 'primary']);
-    showCard('Bridge certified! 🎉',
+    showCard('You Win',
       `The truck made it across.<br>Build cost: <b>$${totalCost().toLocaleString()}</b> of $${LV.budget.toLocaleString()}.` +
       (levelIdx === LEVELS.length - 1 ? '<br><br><b>You beat every level!</b>' : ''),
       btns);
@@ -424,27 +426,12 @@ window.addEventListener('resize', resize);
 resize();
 
 function drawBackdrop(w, h){
-  ctx.fillStyle = '#8fd3f4';
-  ctx.fillRect(0, 0, w, h);
-
-  ctx.fillStyle = 'rgba(110,144,169,.55)';
-  ctx.beginPath();
-  ctx.moveTo(0, py(4.6));
-  ctx.lineTo(w*.18, py(3.4)); ctx.lineTo(w*.34, py(4.4));
-  ctx.lineTo(w*.52, py(3.1)); ctx.lineTo(w*.7,  py(4.5));
-  ctx.lineTo(w*.88, py(3.6)); ctx.lineTo(w,     py(4.4));
-  ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath(); ctx.fill();
-
-  ctx.fillStyle = 'rgba(110,144,169,.55)';
-  ctx.beginPath();
-  ctx.moveTo(0, py(5.2));
-  ctx.lineTo(w*.25, py(4.2)); ctx.lineTo(w*.45, py(5.1));
-  ctx.lineTo(w*.66, py(4.0)); ctx.lineTo(w*.85, py(5.0));
-  ctx.lineTo(w, py(4.5));
-  ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath(); ctx.fill();
-
-  ctx.fillStyle = '#3f7fae';
-  ctx.fillRect(0, py(LV.waterY), w, h - py(LV.waterY));
+  if (bgImg.complete && bgImg.naturalWidth){
+    ctx.drawImage(bgImg, 0, 0, w, h);
+  } else {
+    ctx.fillStyle = '#8fd3f4';
+    ctx.fillRect(0, 0, w, h);
+  }
 }
 
 function drawTerrain(){

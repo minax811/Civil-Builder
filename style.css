@@ -16,7 +16,7 @@
   /* ---------- Top bar ---------- */
   #topbar{
     display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-    padding:8px 12px; background:var(--topbar);
+    padding:18px 12px; background:var(--topbar);
     border-bottom:3px solid var(--topbar-edge);
     user-select:none; z-index:5;
   }
@@ -40,25 +40,28 @@
   button.stop{background:var(--bad);}
   button.ghost{background:#fff; color:var(--ink); border:2px solid var(--panel-edge);}
 
+
   /* ---------- Tool bar ---------- */
   #toolbar{
-    position:absolute; left:12px; top:64px; z-index:4;
-    display:flex; flex-direction:column; gap:8px;
+    position:absolute; left:12px; top:90px; z-index:4;
+    display:flex; flex-direction:column; gap:10px;
   }
   .tool{
-    width:78px; padding:8px 6px; cursor:pointer;
+    width:110px; padding:12px 8px; cursor:pointer;
     background:var(--panel); border:2px solid var(--panel-edge);
-    text-align:center; font-size:11px; font-weight:800; color:var(--ink);
+    text-align:center; font-size:14px; font-weight:800; color:var(--ink);
     user-select:none;
   }
-  .tool .swatch{height:8px; margin:0 6px 5px;}
-  .tool .icon{width:100%; height:22px; object-fit:contain; margin-bottom:5px; display:block; pointer-events:none;}
+  .tool .swatch{height:12px; margin:0 6px 8px;}
+  .tool .icon{width:100%; height:40px; object-fit:contain; margin-bottom:8px; display:block; pointer-events:none;}
   .tool[data-tool="erase"] .swatch{background:repeating-linear-gradient(90deg,#e64545 0 5px,#fff 5px 10px);}
   .tool.active{border-color:var(--accent);}
-  .tool small{display:block; font-weight:600; color:#7a6f60; font-size:10px;}
+  .tool small{display:block; font-weight:600; color:#a31f1f; font-size:11px;}
+
   /* ---------- Canvas ---------- */
   #stage{flex:1; position:relative;}
   canvas{position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none;}
+
   /* ---------- Hint / toast ---------- */
   #hint{
     position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
@@ -66,7 +69,7 @@
     padding:7px 16px; pointer-events:none; z-index:4;
     max-width:92%; text-align:center; transition:opacity .4s;
   }
-  
+
   /* ---------- Overlay ---------- */
   #overlay{
     position:absolute; inset:0; z-index:10; display:none;
@@ -84,6 +87,6 @@
   #card .row{display:flex; gap:10px; justify-content:center;}
   @media (max-width:640px){
     #toolbar{flex-direction:row; left:8px; top:auto; bottom:52px;}
-    .tool{width:64px; padding:6px 4px;}
+    .tool{width:88px; padding:8px 6px;}
     #topbar .title{display:none;}
   }
